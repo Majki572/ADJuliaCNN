@@ -42,7 +42,7 @@ function (layer::MaxPoolLayer)(input::Array{Float32,3})
     return output
 end
 
-function maxpool_backward(layer::MaxPoolLayer, grad_output::Array{Float32,3}, max_indices)
+function backward_pass(layer::MaxPoolLayer, grad_output::Array{Float32,3}, max_indices)
     (output_height, output_width, num_channels) = size(grad_output)
     (input_height, input_width, _) = size(max_indices) * layer.stride
 

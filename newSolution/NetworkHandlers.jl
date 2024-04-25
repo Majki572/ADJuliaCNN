@@ -1,6 +1,14 @@
 module NetworkHandlers
 
-function forward_pass(net, input)
+include("ConvolutionModule.jl")  # Load the module
+include("PoolingModule.jl")  # Load the module
+include("FlattenModule.jl")
+include("DenseModule.jl")
+
+using .ConvolutionModule, .PoolingModule, .FlattenModule, .DenseModule
+
+
+function forward_pass_master(net, input)
     for layer in net
         input = layer(input)  # Works for both conv and pooling layers
         println("Output dimensions after layer $(typeof(layer)): ", size(input))
@@ -8,11 +16,29 @@ function forward_pass(net, input)
     return input
 end
 
-function backward_pass(network, grad_loss)
-    # Assuming each layer has a method to handle its own backward pass and update
+function backward_pass_master(network, grad_loss)
     for layer in reverse(network)
-        grad_loss = layer.backward(grad_loss)  # Pass the gradient back and get new gradient
+
+        layer_string = string(typeof(layer))
+        println(layer_string)
+        if (cmp(layer_string, string(ConvolutionModule.ConvLayer)) == 0)
+            print("YESSSS")
+            grad_loss = ConvolutionModule.backward_pass(layer, grad_loss, layer.last_input)
+
+        elseif (cmp(layer_string, string(PoolingModule.MaxPoolLayer)) == 0)
+            grad_loss = PoolingModule.backward_pass(layer, grad_loss, layer.max_indices)
+
+        elseif (cmp(layer_string, string(DenseModule.DenseLayer)) == 0)
+            grad_loss = DenseModule.backward_pass(layer, grad_loss)
+
+        elseif (cmp(layer_string, string(FlattenModule.FlattenLayer)) == 0)
+            grad_loss = FlattenModule.backward_pass(layer, grad_loss)
+
+        else
+            println("No backward pass defined for layer type $(typeof(layer))")
+        end
     end
+    return grad_loss
 end
 
 end

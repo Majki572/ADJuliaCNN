@@ -63,7 +63,7 @@ function init_conv_layer(kernel_height::Int, kernel_width::Int, input_channels::
     return ConvLayer(weights, biases, stride, padding)
 end
 
-function conv_backward(cl::ConvLayer, input::Array{Float32,3}, grad_output::Array{Float32,3})
+function backward_pass(cl::ConvLayer, input::Array{Float32,3}, grad_output::Array{Float32,3})
     (height, width, channels) = size(input)
     (kernel_height, kernel_width, _, num_kernels) = size(cl.weights)
     stride, padding = cl.stride, cl.padding

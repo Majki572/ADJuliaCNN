@@ -45,20 +45,19 @@ end
 
 # Implementing the backward pass for the dense layer
 function backward_pass(layer::DenseLayer, d_output::Array{Float32,2})
-    # Apply the derivative of the activation function to the output gradient
+    # Apply the derivative of the activation function
     d_activation = layer.activation_grad(layer.activations) .* d_output
 
-    # Gradient w.r.t. weights
+    # Calculate gradients
     d_weights = d_activation * layer.inputs'
-
-    # Gradient w.r.t. biases
     d_biases = sum(d_activation, dims=2)
-
-    # Gradient w.r.t. input
     d_input = layer.weights' * d_activation
 
-    # Optionally, update weights and biases here or return gradients for batch updates
-    return d_weights, d_biases, d_input
+    # Update weights and biases here or return gradients
+    layer.weights .-= 0.01 * d_weights  # Example update
+    layer.biases .-= 0.01 * d_biases
+
+    return d_input
 end
 
 end
