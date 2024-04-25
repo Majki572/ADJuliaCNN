@@ -1,13 +1,13 @@
 module ConvolutionModule
 
 struct ConvLayer
-    weights::Array{Float64,4}  # Updated to 4D to handle multiple filters
-    biases::Array{Float64,1}   # Biases, one per output channel
+    weights::Array{Float32,4}
+    biases::Array{Float32,1}
     stride::Int
     padding::Int
 end
 
-function conv2d(input::Array{Float64,3}, kernels::Array{Float64,4}, stride::Int, padding::Int)
+function conv2d(input::Array{Float32,3}, kernels::Array{Float32,4}, stride::Int, padding::Int)
     # Input dimensions
     (height, width, channels) = size(input)
 
@@ -19,11 +19,11 @@ function conv2d(input::Array{Float64,3}, kernels::Array{Float64,4}, stride::Int,
     out_width = div(width - kernel_width + 2 * padding, stride) + 1
 
     # Apply padding
-    padded_input = zeros(Float64, height + 2 * padding, width + 2 * padding, channels)
+    padded_input = zeros(Float32, height + 2 * padding, width + 2 * padding, channels)
     padded_input[padding+1:padding+height, padding+1:padding+width, :] = input
 
     # Output initialization
-    output = zeros(Float64, out_height, out_width, num_kernels)  # Adjust for multiple output channels
+    output = zeros(Float32, out_height, out_width, num_kernels)
 
     # Perform convolution for each filter
     for k in 1:num_kernels
@@ -44,7 +44,7 @@ function relu(x)
     return max.(0, x)
 end
 
-function (cl::ConvLayer)(input::Array{Float64,3})
+function (cl::ConvLayer)(input::Array{Float32,3})
     # Perform convolution
     conv_output = conv2d(input, cl.weights, cl.stride, cl.padding)
 
@@ -58,9 +58,52 @@ function (cl::ConvLayer)(input::Array{Float64,3})
 end
 
 function init_conv_layer(kernel_height::Int, kernel_width::Int, input_channels::Int, output_channels::Int, stride::Int, padding::Int)
-    weights = 0.01 * randn(kernel_height, kernel_width, input_channels, output_channels)  # Adjusted for multiple filters
-    biases = zeros(output_channels)  # One bias per output channel
+    weights = 0.01f0 * randn(Float32, kernel_height, kernel_width, input_channels, output_channels)  # Adjusted for multiple filters
+    biases = zeros(Float32, output_channels)  # One bias per output channel
     return ConvLayer(weights, biases, stride, padding)
 end
+
+function conv_backward(cl::ConvLayer, input::Array{Float32,3}, grad_output::Array{Float32,3})
+    (height, width, channels) = size(input)
+    (kernel_height, kernel_width, _, num_kernels) = size(cl.weights)
+    stride, padding = cl.stride, cl.padding
+
+    # Initialize gradients
+    grad_input = zeros(Float32, size(input))
+    grad_weights = zeros(Float32, size(cl.weights))
+    grad_biases = zeros(Float32, size(cl.biases))
+
+    # Prepare padded input and gradients for input
+    padded_height = height + 2 * padding
+    padded_width = width + 2 * padding
+    padded_input = zeros(Float32, padded_height, padded_width, channels)
+    padded_input[padding+1:padding+height, padding+1:padding+width, :] = input
+    padded_grad_input = zeros(Float32, size(padded_input))
+
+    # Calculate gradients
+    for k in 1:num_kernels
+        for h in 1:stride:padded_height-kernel_height+1
+            for w in 1:stride:padded_width-kernel_width+1
+                h_out = div(h - 1, stride) + 1
+                w_out = div(w - 1, stride) + 1
+
+                # Extract the patch corresponding to the current output pixel
+                patch = padded_input[h:h+kernel_height-1, w:w+kernel_width-1, :]
+
+                # Update gradients
+                grad_bias = grad_output[h_out, w_out, k]
+                grad_biases[k] += grad_bias
+                grad_weights[:, :, :, k] += patch * grad_bias
+                padded_grad_input[h:h+kernel_height-1, w:w+kernel_width-1, :] += cl.weights[:, :, :, k] * grad_bias
+            end
+        end
+    end
+
+    # Remove padding from grad_input
+    grad_input .= padded_grad_input[padding+1:end-padding, padding+1:end-padding, :]
+
+    return grad_input, grad_weights, grad_biases
+end
+
 
 end

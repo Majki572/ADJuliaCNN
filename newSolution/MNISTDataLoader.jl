@@ -2,22 +2,29 @@ module MNISTDataLoader
 
 using MLDatasets, Random
 
-export load_dataset, preprocess_data, one_hot_encode, batch_data
+export load_data, preprocess_data, one_hot_encode, batch_data
 
-function load_dataset(split::Symbol)
-    # Load MNIST data for the specified split (train or test)
-    return MLDatasets.MNIST(split=split)
+function load_data(split::Symbol)
+    data = MLDatasets.MNIST(split=split)
+    return data.features, data.targets
 end
 
 function preprocess_data(features, targets; one_hot::Bool=true)
-    # Reshape features to add a trivial channel dimension and apply one-hot encoding if specified
-    x4dim = reshape(features, 28, 28, 1, :)
+    # Ensure features are in the correct shape, e.g., (28, 28, 60000)
+    # Reshape features to add a trivial channel dimension and organize into individual samples
+    if ndims(features) == 3
+        num_images = size(features, 3)
+        x4dim = reshape(features, 28, 28, 1, num_images)
+    else
+        throw(DimensionMismatch("Expected features to have 3 dimensions"))
+    end
+
     yhot = one_hot ? one_hot_encode(targets, 0:9) : targets
     return x4dim, yhot
 end
 
+
 function one_hot_encode(targets, classes)
-    # Create a one-hot encoded matrix for the targets based on specified classes
     one_hot = zeros(Int, length(classes), length(targets))
     for (i, class) in enumerate(classes)
         filter_indices = findall(x -> x == class, targets)
@@ -27,11 +34,10 @@ function one_hot_encode(targets, classes)
 end
 
 function batch_data(data, batch_size::Int; shuffle::Bool=true)
-    # Split data into batches, optionally shuffling before partitioning
     x, y = data
     indices = 1:size(x, 4)
     if shuffle
-        indices = shuffle(indices)
+        indices = Random.shuffle(indices)
     end
     return [(x[:, :, :, idx], y[:, idx]) for idx in Iterators.partition(indices, batch_size)]
 end
