@@ -57,7 +57,7 @@ function backward_pass(layer::DenseLayer, d_output::Array{Float32,2})
     layer.weights .-= 0.01 * d_weights  # Example update
     layer.biases .-= 0.01 * d_biases
 
-    return d_input
+    return Float32.(d_input)
 end
 
 end

@@ -1,16 +1,18 @@
 module LossAndAccuracy
-using Statistics: mean  # standard library
+using Statistics: mean  # Standard library
 
-export calculate_loss_and_accuracy
+export loss_and_accuracy
 
 function softmax(x)
     exp_x = exp.(x .- maximum(x, dims=1))  # Subtract max for numerical stability
     return exp_x ./ sum(exp_x, dims=1)
 end
 
-function cross_entropy_loss(predictions, targets)
+function cross_entropy_loss_with_gradient(predictions, targets)
     probabilities = softmax(predictions)
-    return -mean(sum(targets .* log.(probabilities), dims=1))
+    loss = -mean(sum(targets .* log.(probabilities), dims=1))
+    gradient = probabilities - targets  # derivative of cross-entropy loss
+    return loss, Float32.(gradient)
 end
 
 function one_cold(encoded)
@@ -18,16 +20,13 @@ function one_cold(encoded)
 end
 
 function loss_and_accuracy(ŷ, y)
-    loss = cross_entropy_loss(ŷ, y)
-
+    loss, grad = cross_entropy_loss_with_gradient(ŷ, y)
     # Convert predictions and true labels from one-hot to class indices
     pred_classes = one_cold(ŷ)
     true_classes = one_cold(y)
-
-    # Calculate accuracy
-    acc = round(100 * mean(pred_classes .== true_classes); digits=2)
-
-    return (loss=loss, acc=acc)
+    acc = round(100 * mean(pred_classes .== true_classes); digits=2)  # Calculate accuracy
+    return loss, acc, grad
 end
 
 end
+
