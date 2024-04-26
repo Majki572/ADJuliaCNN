@@ -95,7 +95,7 @@ function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
                 patch = padded_input[h:h+kernel_height-1, w:w+kernel_width-1, :]
 
                 # Update gradients
-                if h_out > 0 && h_out <= size(grad_output, 1) && w_out > 0 && w_out <= size(grad_output, 2)
+                if h_out <= size(grad_output, 1) && w_out <= size(grad_output, 2)
                     grad_bias = grad_output[h_out, w_out, k]
                     grad_biases[k] += grad_bias
                     grad_weights[:, :, :, k] += patch * grad_bias
