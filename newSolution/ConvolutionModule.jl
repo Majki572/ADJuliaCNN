@@ -1,10 +1,11 @@
 module ConvolutionModule
 
-struct ConvLayer
+mutable struct ConvLayer
     weights::Array{Float32,4}
     biases::Array{Float32,1}
     stride::Int
     padding::Int
+    last_input::Union{Nothing,Array{Float32,3}}  # Adding this field to store the input
 end
 
 function conv2d(input::Array{Float32,3}, kernels::Array{Float32,4}, stride::Int, padding::Int)
@@ -45,6 +46,8 @@ function relu(x)
 end
 
 function (cl::ConvLayer)(input::Array{Float32,3})
+    cl.last_input = copy(input)  # Store the original input for use in the backward pass
+
     # Perform convolution
     conv_output = conv2d(input, cl.weights, cl.stride, cl.padding)
 
@@ -60,10 +63,11 @@ end
 function init_conv_layer(kernel_height::Int, kernel_width::Int, input_channels::Int, output_channels::Int, stride::Int, padding::Int)
     weights = 0.01f0 * randn(Float32, kernel_height, kernel_width, input_channels, output_channels)  # Adjusted for multiple filters
     biases = zeros(Float32, output_channels)  # One bias per output channel
-    return ConvLayer(weights, biases, stride, padding)
+    return ConvLayer(weights, biases, stride, padding, nothing)
 end
 
-function backward_pass(cl::ConvLayer, input::Array{Float32,3}, grad_output::Array{Float32,3})
+function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
+    input = cl.last_input
     (height, width, channels) = size(input)
     (kernel_height, kernel_width, _, num_kernels) = size(cl.weights)
     stride, padding = cl.stride, cl.padding
@@ -91,10 +95,12 @@ function backward_pass(cl::ConvLayer, input::Array{Float32,3}, grad_output::Arra
                 patch = padded_input[h:h+kernel_height-1, w:w+kernel_width-1, :]
 
                 # Update gradients
-                grad_bias = grad_output[h_out, w_out, k]
-                grad_biases[k] += grad_bias
-                grad_weights[:, :, :, k] += patch * grad_bias
-                padded_grad_input[h:h+kernel_height-1, w:w+kernel_width-1, :] += cl.weights[:, :, :, k] * grad_bias
+                if h_out > 0 && h_out <= size(grad_output, 1) && w_out > 0 && w_out <= size(grad_output, 2)
+                    grad_bias = grad_output[h_out, w_out, k]
+                    grad_biases[k] += grad_bias
+                    grad_weights[:, :, :, k] += patch * grad_bias
+                    padded_grad_input[h:h+kernel_height-1, w:w+kernel_width-1, :] += cl.weights[:, :, :, k] * grad_bias
+                end
             end
         end
     end

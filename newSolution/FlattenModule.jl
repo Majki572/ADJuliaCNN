@@ -1,19 +1,25 @@
 module FlattenModule
 
-export FlattenLayer
+export FlattenLayer, backward_pass
 
-struct FlattenLayer end
+mutable struct FlattenLayer
+    input_shape::Union{Nothing,Tuple{Int,Int,Int}}
+    FlattenLayer() = new(nothing)  # Default constructor sets input_shape to nothing
+end
 
 function (layer::FlattenLayer)(input)
     if ndims(input) == 3
-        # Assuming input as [height, width, channels], typically happens with single image (batch size 1)
-        input = reshape(input, size(input)..., 1)  # Convert to 4D by adding batch dimension
+        layer.input_shape = size(input)
+    else
+        error("Input to FlattenLayer must be a 3D or 4D array.")
     end
     return reshape(input, :, size(input, 4))
 end
 
-# The backward pass function that reshapes the gradient back to the input's original shape
-function backward_pass(layer::FlattenLayer, grad_output::Array)
+function backward_pass(layer::FlattenLayer, grad_output::Array{Float32,2})
+    if isnothing(layer.input_shape)
+        error("Input shape must be set during the forward pass before calling backward_pass.")
+    end
     return reshape(grad_output, layer.input_shape)
 end
 
