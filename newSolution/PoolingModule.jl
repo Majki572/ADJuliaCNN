@@ -45,8 +45,6 @@ end
 
 function backward_pass(layer::MaxPoolLayer, grad_output::Array{Float32,3})
     # Assume grad_output is reshaped correctly by FlattenLayer's backward_pass
-    println("max indices: ", size(layer.max_indices))
-
     grad_input = zeros(Float32, calculate_input_dimensions(layer, size(grad_output)...))
     for c in 1:size(grad_output, 3)
         for h in 1:size(grad_output, 1)

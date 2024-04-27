@@ -10,7 +10,6 @@ end
 
 function cross_entropy_loss_with_gradient(predictions, targets)
     probabilities = softmax(predictions)
-    println("Probabilities: ", probabilities)
     loss = -mean(sum(targets .* log.(probabilities), dims=1))
     gradient = probabilities - targets  # derivative of cross-entropy loss
     return loss, Float32.(gradient)

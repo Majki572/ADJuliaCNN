@@ -16,8 +16,8 @@ train_features, train_labels = MNISTDataLoader.load_data(:train)
 train_x, train_y = MNISTDataLoader.preprocess_data(train_features, train_labels; one_hot=true)
 
 # Create batches
-# batch_size = 100  # Define your desired batch size
-# train_data = MNISTDataLoader.batch_data((train_x, train_y), batch_size; shuffle=true)
+batch_size = 100  # Define your desired batch size
+train_data = MNISTDataLoader.batch_data((train_x, train_y), batch_size; shuffle=true)
 # input_image = Float64.(input_image)
 
 # Initialize layers
@@ -34,13 +34,15 @@ function backward_pass_master(network, grad_loss, transition_output_pool=nothing
     for layer in reverse(network)
         if isa(layer, ConvolutionModule.ConvLayer)
             grad_loss = ConvolutionModule.backward_pass(layer, grad_loss)
+
         elseif isa(layer, PoolingModule.MaxPoolLayer)
-            grad_loss = PoolingModule.backward_pass(layer, transition_output_pool)
+            grad_loss = PoolingModule.backward_pass(layer, grad_loss)
+
         elseif isa(layer, DenseModule.DenseLayer)
             grad_loss = DenseModule.backward_pass(layer, grad_loss)
+
         elseif isa(layer, FlattenModule.FlattenLayer)
-            transition_output_pool = FlattenModule.backward_pass(layer, grad_loss)
-            println(typeof(transition_output_pool))
+            grad_loss = FlattenModule.backward_pass(layer, grad_loss)
         else
             println("No backward pass defined for layer type $(typeof(layer))")
         end
@@ -61,15 +63,20 @@ function train_epoch(network, inputs, targets, epochs)
 
             # Forward pass
             output = NetworkHandlers.forward_pass_master(network, input)
-            println("Output: $output")
+
             # Calculate loss, accuracy, and its gradient
             loss, accuracy, grad_loss = LossAndAccuracy.loss_and_accuracy(output, target)
-            println("Loss at iteration $i: $loss, Accuracy: $accuracy%, Gradient: $grad_loss")
+
+            if (i % 100 == 0)
+                println("Loss: ", loss)
+                println("Accuracy: ", accuracy)
+            end
 
             # Backward pass
             backward_pass_master(network, grad_loss)
         end
+        println("Epoch $(epoch) done")
     end
 end
 
-train_epoch(network, train_x, train_y, 1)
+train_epoch(network, train_x, train_y, 3)
