@@ -1,10 +1,10 @@
 module LossAndAccuracy
-using Statistics: mean  # Standard library
+using Statistics: mean
 
 export loss_and_accuracy
 
 function softmax(x)
-    exp_x = exp.(x .- maximum(x, dims=1))  # Subtract max for numerical stability
+    exp_x = exp.(x .- maximum(x, dims=1))
     return exp_x ./ sum(exp_x, dims=1)
 end
 
@@ -24,7 +24,7 @@ function loss_and_accuracy(ŷ, y)
     # Convert predictions and true labels from one-hot to class indices
     pred_classes = one_cold(ŷ)
     true_classes = one_cold(y)
-    acc = round(100 * mean(pred_classes .== true_classes); digits=2)  # Calculate accuracy
+    acc = round(100 * mean(pred_classes .== true_classes); digits=2)
     return loss, acc, grad
 end
 

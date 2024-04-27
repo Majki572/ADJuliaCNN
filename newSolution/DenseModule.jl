@@ -5,9 +5,11 @@ export DenseLayer, init_dense_layer, backward_pass, relu, relu_grad, identity, i
 mutable struct DenseLayer
     weights::Array{Float32,2}
     biases::Array{Float32,1}
+    grad_weights::Union{Nothing,Array{Float32,2}}
+    grad_biases::Union{Nothing,Array{Float32,1}}
     activation::Function
     activation_grad::Function
-    activations::Array{Float32,2}  # Mutable fields for runtime state
+    activations::Array{Float32,2}
     inputs::Array{Float32,2}
 end
 
@@ -16,7 +18,7 @@ function relu(x)
 end
 
 function relu_grad(x)
-    return float.(x .> 0)  # Convert boolean values to 1.0 or 0.0
+    return float.(x .> 0)
 end
 
 function identity(x)
@@ -37,10 +39,11 @@ end
 function init_dense_layer(input_dim::Int, output_dim::Int, activation::Function, activation_grad::Function)
     weights = 0.01f0 * randn(Float32, output_dim, input_dim)
     biases = zeros(Float32, output_dim)
-    # Initialize activations and inputs arrays
-    activations = zeros(Float32, output_dim, 1)  # Adjust the shape appropriately
-    inputs = zeros(Float32, input_dim, 1)  # Adjust the shape appropriately
-    return DenseLayer(weights, biases, activation, activation_grad, activations, inputs)
+    grad_weights = zeros(Float32, output_dim, input_dim)
+    grad_biases = zeros(Float32, output_dim)
+    activations = zeros(Float32, output_dim, 1)
+    inputs = zeros(Float32, input_dim, 1)
+    return DenseLayer(weights, biases, grad_weights, grad_biases, activation, activation_grad, activations, inputs)
 end
 
 # Implementing the backward pass for the dense layer
@@ -52,11 +55,14 @@ function backward_pass(layer::DenseLayer, d_output::Array{Float32,2})
     d_weights = d_activation * layer.inputs'
     d_biases = sum(d_activation, dims=2)
     d_input = layer.weights' * d_activation
-    # Update weights and biases here or return gradients
-    layer.weights .-= 0.01 * d_weights  # Example update
-    layer.biases .-= 0.01 * d_biases
+    # Update weights and biases here
+    # layer.weights .-= 0.01 * d_weights
 
-    return Float32.(d_input)
+    # layer.biases .-= 0.01 * d_biases
+    layer.grad_weights .+= d_weights
+    layer.grad_biases .+= d_biases
+
+    return Float32.(d_input) #, d_weights, d_biases
 end
 
 end

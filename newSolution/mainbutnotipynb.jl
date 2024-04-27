@@ -1,7 +1,7 @@
 using Statistics
 
-include("ConvolutionModule.jl")  # Load the module
-include("PoolingModule.jl")  # Load the module
+include("ConvolutionModule.jl")
+include("PoolingModule.jl")
 include("FlattenModule.jl")
 include("DenseModule.jl")
 
@@ -16,7 +16,7 @@ train_features, train_labels = MNISTDataLoader.load_data(:train)
 train_x, train_y = MNISTDataLoader.preprocess_data(train_features, train_labels; one_hot=true)
 
 # Create batches
-batch_size = 100  # Define your desired batch size
+batch_size = 100
 train_data = MNISTDataLoader.batch_data((train_x, train_y), batch_size; shuffle=true)
 # input_image = Float64.(input_image)
 
@@ -30,7 +30,7 @@ dense_layer1 = DenseModule.init_dense_layer(400, 84, DenseModule.relu, DenseModu
 dense_layer2 = DenseModule.init_dense_layer(84, 10, DenseModule.identity, DenseModule.identity_grad)
 
 # Workaround because of namespaces...
-function backward_pass_master(network, grad_loss, transition_output_pool=nothing)
+function backward_pass_master(network, grad_loss)
     for layer in reverse(network)
         if isa(layer, ConvolutionModule.ConvLayer)
             grad_loss = ConvolutionModule.backward_pass(layer, grad_loss)
@@ -50,33 +50,59 @@ function backward_pass_master(network, grad_loss, transition_output_pool=nothing
     return grad_loss
 end
 
+function update_weights(network, learning_rate)
+    for layer in network
+        if isa(layer, DenseModule.DenseLayer) || isa(layer, ConvolutionModule.ConvLayer)
+            layer.weights .-= learning_rate * layer.grad_weights
+            layer.biases .-= learning_rate * layer.grad_biases
+            # Reset gradients after update
+            layer.grad_weights .= 0
+            layer.grad_biases .= 0
+        end
+    end
+end
 
 # Assemble the network
 network = (conv_layer1, pool_layer1, conv_layer2, pool_layer2, flatten_layer, dense_layer1, dense_layer2)
 
 using .NetworkHandlers, .LossAndAccuracy
-function train_epoch(network, inputs, targets, epochs)
-    for epoch in 1:epochs
-        for i in 1:size(inputs, 4)  # Iterate over each example
-            input = inputs[:, :, :, i]
-            target = targets[:, i]
+epochs = 3
 
-            # Forward pass
-            output = NetworkHandlers.forward_pass_master(network, input)
+for epoch in 1:epochs
+    accumulated_accuracy_epoch = 0.0
+    accumulated_accuracy_batch = 0.0
+    for i in 1:size(train_x, 4)
+        input = train_x[:, :, :, i]
+        target = train_y[:, i]
 
-            # Calculate loss, accuracy, and its gradient
-            loss, accuracy, grad_loss = LossAndAccuracy.loss_and_accuracy(output, target)
+        # Forward pass
+        output = NetworkHandlers.forward_pass_master(network, input)
 
-            if (i % 100 == 0)
-                println("Loss: ", loss)
-                println("Accuracy: ", accuracy)
-            end
+        # Calculate loss, accuracy, and its gradient
+        loss, accuracy, grad_loss = LossAndAccuracy.loss_and_accuracy(output, target)
+        accumulated_accuracy_epoch += accuracy
+        accumulated_accuracy_batch += accuracy
 
-            # Backward pass
-            backward_pass_master(network, grad_loss)
+        # if(i % 100 == 0)
+        #     println("Loss: ", loss)
+        #     println("Accuracy: ", round(accumulated_accuracy_batch / 100, digits=2))
+        #     accumulated_accuracy_batch = 0.0
+        # end
+
+        if (i % 10000 == 0)
+            println("i ", i)
         end
-        println("Epoch $(epoch) done")
-    end
-end
 
-train_epoch(network, train_x, train_y, 3)
+        if mod(i, batch_size) == 0
+            update_weights(network, 0.01)  # Learning rate
+        end
+
+        # Backward pass
+        backward_pass_master(network, grad_loss)
+    end
+    println("Epoch $(epoch) done")
+    println("Accuracy: ", round(accumulated_accuracy_epoch / size(train_x, 4), digits=2))
+    accumulated_accuracy_epoch = 0.0
+
+    update_weights(network, 0.01)
+end

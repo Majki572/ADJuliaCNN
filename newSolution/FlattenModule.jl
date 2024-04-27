@@ -4,7 +4,7 @@ export FlattenLayer, backward_pass
 
 mutable struct FlattenLayer
     input_shape::Union{Nothing,Tuple{Int,Int,Int}}
-    FlattenLayer() = new(nothing)  # Default constructor sets input_shape to nothing
+    FlattenLayer() = new(nothing)
 end
 
 function (layer::FlattenLayer)(input)

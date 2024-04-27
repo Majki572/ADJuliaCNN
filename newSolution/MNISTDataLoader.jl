@@ -10,8 +10,6 @@ function load_data(split::Symbol)
 end
 
 function preprocess_data(features, targets; one_hot::Bool=true)
-    # Ensure features are in the correct shape, e.g., (28, 28, 60000)
-    # Reshape features to add a trivial channel dimension and organize into individual samples
     if ndims(features) == 3
         num_images = size(features, 3)
         x4dim = reshape(features, 28, 28, 1, num_images)
