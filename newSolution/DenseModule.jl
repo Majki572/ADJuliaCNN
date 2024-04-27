@@ -52,7 +52,6 @@ function backward_pass(layer::DenseLayer, d_output::Array{Float32,2})
     d_weights = d_activation * layer.inputs'
     d_biases = sum(d_activation, dims=2)
     d_input = layer.weights' * d_activation
-
     # Update weights and biases here or return gradients
     layer.weights .-= 0.01 * d_weights  # Example update
     layer.biases .-= 0.01 * d_biases
