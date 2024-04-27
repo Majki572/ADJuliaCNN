@@ -107,8 +107,7 @@ function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
 
     # Remove padding from grad_input
     grad_input .= padded_grad_input[padding+1:end-padding, padding+1:end-padding, :]
-
-    return grad_input, grad_weights, grad_biases
+    return grad_input #, grad_weights, grad_biases
 end
 
 
