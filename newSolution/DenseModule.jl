@@ -1,4 +1,5 @@
 module DenseModule
+using Random
 
 export DenseLayer, init_dense_layer, backward_pass, relu, relu_grad, identity, identity_grad
 
@@ -36,8 +37,12 @@ function (layer::DenseLayer)(input::Array{Float32,2})
     return layer.activations
 end
 
-function init_dense_layer(input_dim::Int, output_dim::Int, activation::Function, activation_grad::Function)
-    weights = randn(Float32, output_dim, input_dim)
+function init_dense_layer(input_dim::Int, output_dim::Int, activation::Function, activation_grad::Function, seedy::Int)
+
+    # seed = rand(UInt32)
+    Random.seed!(seedy)
+
+    weights = 0.178 * randn(Float32, output_dim, input_dim)
     biases = zeros(Float32, output_dim)
     grad_weights = zeros(Float32, output_dim, input_dim)
     grad_biases = zeros(Float32, output_dim)

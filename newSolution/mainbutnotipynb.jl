@@ -25,13 +25,13 @@ train_data = MNISTDataLoader.batch_data((train_x, train_y), batch_size; shuffle=
 # input_image = Float64.(input_image)
 
 # Initialize layers
-conv_layer1 = ConvolutionModule.init_conv_layer(3, 3, 1, 6, 1, 0)
+conv_layer1 = ConvolutionModule.init_conv_layer(3, 3, 1, 6, 1, 0, 3697631579)
 pool_layer1 = PoolingModule.init_pool_layer(2, 2, 2)
-conv_layer2 = ConvolutionModule.init_conv_layer(3, 3, 6, 16, 1, 0)
+conv_layer2 = ConvolutionModule.init_conv_layer(3, 3, 6, 16, 1, 0, 3731614026)
 pool_layer2 = PoolingModule.init_pool_layer(2, 2, 2)
 flatten_layer = FlattenModule.FlattenLayer()
-dense_layer1 = DenseModule.init_dense_layer(400, 84, DenseModule.relu, DenseModule.relu_grad)
-dense_layer2 = DenseModule.init_dense_layer(84, 10, DenseModule.identity, DenseModule.identity_grad)
+dense_layer1 = DenseModule.init_dense_layer(400, 84, DenseModule.relu, DenseModule.relu_grad, 4172219205)
+dense_layer2 = DenseModule.init_dense_layer(84, 10, DenseModule.identity, DenseModule.identity_grad, 3762133366)
 
 # Workaround because of namespaces...
 function backward_pass_master(network, grad_loss)

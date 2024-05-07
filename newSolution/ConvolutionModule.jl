@@ -1,4 +1,5 @@
 module ConvolutionModule
+using Random
 
 mutable struct ConvLayer
     weights::Array{Float32,4}
@@ -62,8 +63,12 @@ function relu(x)
     return max.(0, x)
 end
 
-function init_conv_layer(kernel_height::Int, kernel_width::Int, input_channels::Int, output_channels::Int, stride::Int, padding::Int)
-    weights = randn(Float32, kernel_height, kernel_width, input_channels, output_channels)
+function init_conv_layer(kernel_height::Int, kernel_width::Int, input_channels::Int, output_channels::Int, stride::Int, padding::Int, seedy::Int)
+
+    # seed = rand(UInt32)
+    Random.seed!(seedy)
+
+    weights = 0.178 * randn(Float32, kernel_height, kernel_width, input_channels, output_channels)
     biases = zeros(Float32, output_channels)
     grad_weights = zeros(Float32, kernel_height, kernel_width, input_channels, output_channels)
     grad_biases = zeros(Float32, output_channels)
