@@ -10,7 +10,7 @@ mutable struct ConvLayer
     last_input::Union{Nothing,Array{Float32,3}}  # Adding this field to store the input
 end
 
-function conv2d(input::Array{Float32,3}, kernels::Array{Float32,4}, stride::Int, padding::Int)
+function forward(input::Array{Float32,3}, kernels::Array{Float32,4}, stride::Int, padding::Int)
     # Input dimensions
     (height, width, channels) = size(input)
 
@@ -42,16 +42,11 @@ function conv2d(input::Array{Float32,3}, kernels::Array{Float32,4}, stride::Int,
     return output
 end
 
-# Implementing ReLU activation function
-function relu(x)
-    return max.(0, x)
-end
-
 function (cl::ConvLayer)(input::Array{Float32,3})
     cl.last_input = copy(input)  # Store the original input for use in the backward pass
 
     # Perform convolution
-    conv_output = conv2d(input, cl.weights, cl.stride, cl.padding)
+    conv_output = forward(input, cl.weights, cl.stride, cl.padding)
 
     # Add bias (broadcasting addition across channels)
     for c in axes(conv_output, 3)
@@ -62,11 +57,16 @@ function (cl::ConvLayer)(input::Array{Float32,3})
     return relu(conv_output)
 end
 
+# Implementing ReLU activation function
+function relu(x)
+    return max.(0, x)
+end
+
 function init_conv_layer(kernel_height::Int, kernel_width::Int, input_channels::Int, output_channels::Int, stride::Int, padding::Int)
-    weights = 0.01f0 * randn(Float32, kernel_height, kernel_width, input_channels, output_channels)
+    weights = randn(Float32, kernel_height, kernel_width, input_channels, output_channels)
     biases = zeros(Float32, output_channels)
-    grad_weights = zeros(Float32, kernel_height, kernel_width, input_channels, output_channels)  # Initialize gradients for weights
-    grad_biases = zeros(Float32, output_channels)  # Initialize gradients for biases
+    grad_weights = zeros(Float32, kernel_height, kernel_width, input_channels, output_channels)
+    grad_biases = zeros(Float32, output_channels)
     return ConvLayer(weights, biases, grad_weights, grad_biases, stride, padding, nothing)
 end
 

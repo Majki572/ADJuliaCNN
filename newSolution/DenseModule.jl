@@ -37,7 +37,7 @@ function (layer::DenseLayer)(input::Array{Float32,2})
 end
 
 function init_dense_layer(input_dim::Int, output_dim::Int, activation::Function, activation_grad::Function)
-    weights = 0.01f0 * randn(Float32, output_dim, input_dim)
+    weights = randn(Float32, output_dim, input_dim)
     biases = zeros(Float32, output_dim)
     grad_weights = zeros(Float32, output_dim, input_dim)
     grad_biases = zeros(Float32, output_dim)
