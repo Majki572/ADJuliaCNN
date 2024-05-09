@@ -15,6 +15,14 @@ using .ConvolutionModule, .PoolingModule, .MNISTDataLoader, .FlattenModule, .Den
 train_features, train_labels = MNISTDataLoader.load_data(:train)
 train_x, train_y = MNISTDataLoader.preprocess_data(train_features, train_labels; one_hot=true)
 
+# for i in eachindex(axes(train_x, 4))
+#     input = train_x[:, :, :, i]
+#     (height, width, channels) = size(input)
+#     if height != 28 || width != 28 || channels != 1
+#         println("Input $i: height=$height, width=$width, channels=$channels")
+#     end
+# end
+
 # Load and preprocess test data
 test_features, test_labels = MNISTDataLoader.load_data(:test)
 test_x, test_y = MNISTDataLoader.preprocess_data(test_features, test_labels; one_hot=true)
@@ -24,11 +32,13 @@ batch_size = 100
 train_data = MNISTDataLoader.batch_data((train_x, train_y), batch_size; shuffle=true)
 # input_image = Float64.(input_image)
 
+sample_input = train_x[:, :, :, 1]
+
 # Initialize layers
-conv_layer1 = ConvolutionModule.init_conv_layer(3, 3, 1, 6, 1, 0, 3697631579)
-pool_layer1 = PoolingModule.init_pool_layer(2, 2, 2)
-conv_layer2 = ConvolutionModule.init_conv_layer(3, 3, 6, 16, 1, 0, 3731614026)
-pool_layer2 = PoolingModule.init_pool_layer(2, 2, 2)
+conv_layer1 = ConvolutionModule.init_conv_layer(3, 3, 1, 6, 1, 0, 3697631579, 28, 28, 1)
+pool_layer1 = PoolingModule.init_pool_layer(2, 2, 2, 26, 26, 6)
+conv_layer2 = ConvolutionModule.init_conv_layer(3, 3, 6, 16, 1, 0, 3731614026, 13, 13, 6)
+pool_layer2 = PoolingModule.init_pool_layer(2, 2, 2, 11, 11, 16)
 flatten_layer = FlattenModule.FlattenLayer()
 dense_layer1 = DenseModule.init_dense_layer(400, 84, DenseModule.relu, DenseModule.relu_grad, 4172219205)
 dense_layer2 = DenseModule.init_dense_layer(84, 10, DenseModule.identity, DenseModule.identity_grad, 3762133366)
@@ -110,46 +120,57 @@ network = (conv_layer1, pool_layer1, conv_layer2, pool_layer2, flatten_layer, de
 
 using .NetworkHandlers, .LossAndAccuracy
 epochs = 3
-training_step = 0.01
+training_step = 0.5
 
 println("Starting training...")
 
-for epoch in 1:epochs
-    accumulated_accuracy_epoch = 0.0
-    accumulated_accuracy_batch = 0.0
-    for i in eachindex(axes(train_x, 4))
-        input = train_x[:, :, :, i]
-        target = train_y[:, i]
+plot_loss = Float64[]
+batch_loss = 0.0
+@time begin
+    for epoch in 1:epochs
+        accumulated_accuracy_epoch = 0.0
+        accumulated_accuracy_batch = 0.0
+        for i in eachindex(axes(train_x, 4))
+            input = train_x[:, :, :, i]
+            target = train_y[:, i]
 
-        output = NetworkHandlers.forward_pass_master(network, input)
+            output = NetworkHandlers.forward_pass_master(network, input)
 
-        loss, accuracy, grad_loss = LossAndAccuracy.loss_and_accuracy(output, target)
-        accumulated_accuracy_epoch += accuracy
-        accumulated_accuracy_batch += accuracy
+            loss, accuracy, grad_loss = LossAndAccuracy.loss_and_accuracy(output, target)
+            accumulated_accuracy_epoch += accuracy
+            accumulated_accuracy_batch += accuracy
+            batch_loss += loss
+            # if i % 100 == 0
+            #     println("Loss: ", loss)
+            #     println("Accuracy: ", round(accumulated_accuracy_batch / 100, digits=2))
+            #     accumulated_accuracy_batch = 0.0
+            # end
 
-        # if i % 100 == 0
-        #     println("Loss: ", loss)
-        #     println("Accuracy: ", round(accumulated_accuracy_batch / 100, digits=2))
-        #     accumulated_accuracy_batch = 0.0
-        # end
+            if i % 10000 == 0
+                println("i ", i)
+            end
 
-        if i % 10000 == 0
-            println("i ", i)
+            backward_pass_master(network, grad_loss)
+
+            if i % batch_size == 0
+                plot_loss = push!(plot_loss, batch_loss / batch_size)
+                batch_loss = 0.0
+                update_weights(network, training_step)
+            end
         end
+        # println("Epoch $(epoch) done")
+        # println("Accuracy: ", round(accumulated_accuracy_epoch / size(train_x, 4), digits=2))
+        # accumulated_accuracy_epoch = 0.0
 
-        backward_pass_master(network, grad_loss)
+        test_loss, test_accuracy = evaluate_model(network, test_x, test_y)
+        println("Epoch $(epoch) done. Training Accuracy: $(round(accumulated_accuracy_epoch / size(train_x, 4), digits=2)), Test Loss: $test_loss, Test Accuracy: $test_accuracy")
 
-        if i % batch_size == 0
-            update_weights(network, training_step)
-        end
+        # Update weights at the end of each epoch
+        update_weights(network, training_step)
     end
-    # println("Epoch $(epoch) done")
-    # println("Accuracy: ", round(accumulated_accuracy_epoch / size(train_x, 4), digits=2))
-    # accumulated_accuracy_epoch = 0.0
-
-    test_loss, test_accuracy = evaluate_model(network, test_x, test_y)
-    println("Epoch $(epoch) done. Training Accuracy: $(round(accumulated_accuracy_epoch / size(train_x, 4), digits=2)), Test Loss: $test_loss, Test Accuracy: $test_accuracy")
-
-    # Update weights at the end of each epoch
-    update_weights(network, training_step)
 end
+
+# Plot
+using Plots
+
+plot(plot_loss, xlabel="Batch", ylabel="Loss", title="Loss over time")

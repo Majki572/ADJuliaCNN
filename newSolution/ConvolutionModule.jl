@@ -9,45 +9,52 @@ mutable struct ConvLayer
     stride::Int
     padding::Int
     last_input::Union{Nothing,Array{Float32,3}}  # Adding this field to store the input
+    # Caches for optimization -6GiB
+    height::Int
+    width::Int
+    channels::Int
+    kernel_height::Int
+    kernel_width::Int
+    num_kernels::Int
+    out_height::Int
+    out_width::Int
+    output::Array{Float32,3}
+    padded_input::Array{Float32,3}
+    grad_input::Array{Float32,3}
 end
 
-function forward(input::Array{Float32,3}, kernels::Array{Float32,4}, stride::Int, padding::Int)
-    # Input dimensions
-    (height, width, channels) = size(input)
-
-    # Kernel dimensions
-    (kernel_height, kernel_width, _, num_kernels) = size(kernels)
-
-    # Output dimensions
-    out_height = div(height - kernel_height + 2 * padding, stride) + 1
-    out_width = div(width - kernel_width + 2 * padding, stride) + 1
+function forward(input::Array{Float32,3}, cl::ConvLayer, kernels::Array{Float32,4}, stride::Int, padding::Int)
 
     # Apply padding
-    padded_input = zeros(Float32, height + 2 * padding, width + 2 * padding, channels)
-    padded_input[padding+1:padding+height, padding+1:padding+width, :] = input
+    if padding > 0
+        cl.padded_input .= 0
+        cl.padded_input[cl.padding+1:cl.padding+cl.height, cl.padding+1:cl.padding+cl.width, :] = input
+    else
+        cl.padded_input = input
+    end
 
-    # Output initialization
-    output = zeros(Float32, out_height, out_width, num_kernels)
+
+    fill!(cl.output, 0)
 
     # Perform convolution for each filter
-    for k in 1:num_kernels
+    for k in 1:cl.num_kernels
         kernel = kernels[:, :, :, k]
-        for h in 1:stride:height-kernel_height+1+2*padding
-            for w in 1:stride:width-kernel_width+1+2*padding
-                patch = padded_input[h:h+kernel_height-1, w:w+kernel_width-1, :]
-                output[div(h - 1, stride)+1, div(w - 1, stride)+1, k] += sum(patch .* kernel)
+        for h in 1:stride:cl.height-cl.kernel_height+1+2*padding
+            for w in 1:stride:cl.width-cl.kernel_width+1+2*padding
+                patch = cl.padded_input[h:h+cl.kernel_height-1, w:w+cl.kernel_width-1, :]
+                cl.output[div(h - 1, stride)+1, div(w - 1, stride)+1, k] += sum(patch .* kernel)
             end
         end
     end
 
-    return output
+    return cl.output
 end
 
 function (cl::ConvLayer)(input::Array{Float32,3})
-    cl.last_input = copy(input)  # Store the original input for use in the backward pass
+    cl.last_input = input  # Store the original input for use in the backward pass
 
     # Perform convolution
-    conv_output = forward(input, cl.weights, cl.stride, cl.padding)
+    conv_output = forward(input, cl, cl.weights, cl.stride, cl.padding)
 
     # Add bias (broadcasting addition across channels)
     for c in axes(conv_output, 3)
@@ -63,7 +70,7 @@ function relu(x)
     return max.(0, x)
 end
 
-function init_conv_layer(kernel_height::Int, kernel_width::Int, input_channels::Int, output_channels::Int, stride::Int, padding::Int, seedy::Int)
+function init_conv_layer(kernel_height::Int, kernel_width::Int, input_channels::Int, output_channels::Int, stride::Int, padding::Int, seedy::Int, inp_height::Int, inp_width::Int, inp_channels::Int)
 
     # seed = rand(UInt32)
     Random.seed!(seedy)
@@ -72,27 +79,41 @@ function init_conv_layer(kernel_height::Int, kernel_width::Int, input_channels::
     biases = zeros(Float32, output_channels)
     grad_weights = zeros(Float32, kernel_height, kernel_width, input_channels, output_channels)
     grad_biases = zeros(Float32, output_channels)
-    return ConvLayer(weights, biases, grad_weights, grad_biases, stride, padding, nothing)
+
+    # Prepare caches
+    (kh, kw, _, num_kernels) = size(weights)
+    out_height = div(inp_height - kh + 2 * padding, stride) + 1
+    out_width = div(inp_width - kw + 2 * padding, stride) + 1
+    output = zeros(Float32, out_height, out_width, num_kernels)
+    grad_input = zeros(Float32, (inp_height, inp_width, inp_channels))
+    padded_input = zeros(Float32, inp_height + 2 * padding, inp_width + 2 * padding, inp_channels)
+
+    return ConvLayer(weights, biases, grad_weights, grad_biases, stride, padding, nothing, inp_height, inp_width, inp_channels, kh, kw, num_kernels, out_height, out_width, output, padded_input, grad_input)
 end
 
 function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
     input = cl.last_input
-    (height, width, channels) = size(input)
-    (kernel_height, kernel_width, _, num_kernels) = size(cl.weights)
-    stride, padding = cl.stride, cl.padding
 
-    grad_input = zeros(Float32, size(input))
+    cl.grad_input .= 0
     # Prepare padded input and gradients for input
-    padded_input = zeros(Float32, height + 2 * padding, width + 2 * padding, channels)
-    padded_input[padding+1:end-padding, padding+1:end-padding, :] = input
 
-    for k in 1:num_kernels
-        for h in 1:stride:height-kernel_height+1+2*padding
-            for w in 1:stride:width-kernel_width+1+2*padding
-                h_out = div(h - 1, stride) + 1
-                w_out = div(w - 1, stride) + 1
-                if h_out <= size(grad_output, 1) && w_out <= size(grad_output, 2)
-                    patch = padded_input[h:h+kernel_height-1, w:w+kernel_width-1, :]
+    if cl.padding > 0
+        cl.padded_input .= 0
+        cl.padded_input[cl.padding+1:cl.padding+cl.height, cl.padding+1:cl.padding+cl.width, :] = input
+    else
+        cl.padded_input = input
+    end
+
+    h_output = size(grad_output, 1)
+    w_output = size(grad_output, 2)
+
+    for k in 1:cl.num_kernels
+        for h in 1:cl.stride:cl.height-cl.kernel_height+1+2*cl.padding
+            for w in 1:cl.stride:cl.width-cl.kernel_width+1+2*cl.padding
+                h_out = div(h - 1, cl.stride) + 1
+                w_out = div(w - 1, cl.stride) + 1
+                if h_out <= h_output && w_out <= w_output
+                    patch = cl.padded_input[h:h+cl.kernel_height-1, w:w+cl.kernel_width-1, :]
                     grad_bias = grad_output[h_out, w_out, k]
                     cl.grad_biases[k] += grad_bias
                     cl.grad_weights[:, :, :, k] += patch * grad_bias
@@ -104,7 +125,7 @@ function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
     # Update weights and biases here
     # cl.weights .-= 0.01 * grad_weights
     # cl.biases .-= 0.01 * grad_biases
-    return Float32.(grad_input) #, grad_weights, grad_biases
+    return Float32.(cl.grad_input) #, grad_weights, grad_biases
 end
 
 
