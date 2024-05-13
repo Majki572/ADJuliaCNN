@@ -28,6 +28,7 @@ function relu_grad(x)
     end
     return x
 end
+
 function identity(x)
     return x
 end
@@ -37,8 +38,18 @@ function identity_grad(x)
 end
 
 function (layer::DenseLayer)(input::Array{Float32,2})
+    z = layer.weights * input
+    z_sizeone = size(z, 1)
+    z_sizetwo = size(z, 2)
+
+    for i in 1:z_sizeone
+        for j in 1:z_sizetwo
+            layer.activations[i, j] = z[i, j] + layer.biases[i]
+        end
+    end
+
     # Store intermediate values needed for backpropagation
-    layer.activations = layer.activation(layer.weights * input .+ layer.biases)
+    layer.activations = layer.activation(layer.activations)
     layer.inputs = input  # Save input to use in the backward pass
     return layer.activations
 end
@@ -58,18 +69,36 @@ function init_dense_layer(input_dim::Int, output_dim::Int, activation::Function,
 end
 
 function backward_pass(layer::DenseLayer, d_output::Array{Float32,2})
+
+    a_grad = layer.activation_grad(layer.activations)
+    a_grad_sizeone = size(a_grad, 1)
+    a_grad_sizetwo = size(a_grad, 2)
+    d_activation = zeros(Float32, a_grad_sizeone, a_grad_sizetwo)
     # Apply the derivative of the activation function
-    d_activation = layer.activation_grad(layer.activations) .* d_output
+    for i in 1:a_grad_sizeone
+        for j in 1:a_grad_sizetwo
+            d_activation[i, j] = a_grad[i, j] * d_output[i, j]
+        end
+    end #d_activation = layer.activation_grad(layer.activations) .* d_output
 
     # Calculate gradients
     d_weights = d_activation * layer.inputs'
     d_biases = sum(d_activation, dims=2)
     d_input = layer.weights' * d_activation
 
-    layer.grad_weights .+= d_weights
-    layer.grad_biases .+= d_biases
+    a = size(layer.grad_weights, 1)
+    b = size(layer.grad_weights, 2)
+    for i in 1:a
+        for j in 1:b
+            layer.grad_weights[i, j] += d_weights[i, j]
+        end
+    end
+    length_biases = length(layer.grad_biases)
+    for i in 1:length_biases
+        layer.grad_biases[i] += d_biases[i]
+    end
 
-    return Float32.(d_input)
+    return d_input
 end
 
 end

@@ -70,17 +70,14 @@ function forward(input::Array{Float32,3}, cl::ConvLayer, kernels::Array{Float32,
 end
 
 function (cl::ConvLayer)(input::Array{Float32,3})
-    cl.last_input = input  # Store the original input for use in the backward pass
+    cl.last_input = input # Save input to use in the backward pass
 
-    # Perform convolution
     conv_output = forward(input, cl, cl.weights, cl.stride, cl.padding)
 
-    # Add bias (broadcasting addition across channels)
     for c in axes(conv_output, 3)
         conv_output[:, :, c] .+= cl.biases[c]
     end
 
-    # Apply ReLU activation function
     return relu(conv_output)
 end
 
@@ -117,8 +114,14 @@ function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
 
     input = cl.last_input
 
-    cl.grad_input .= 0
-    # Prepare padded input and gradients for input
+    gi1, gi2, gi3 = size(cl.grad_input, 1), size(cl.grad_input, 2), size(cl.grad_input, 3)
+    for i in 1:gi1
+        for j in 1:gi2
+            for k in 1:gi3
+                cl.grad_input[i, j, k] = 0.0
+            end
+        end
+    end #cl.grad_input .= 0
 
     if cl.padding > 0
         cl.padded_input .= 0
@@ -148,10 +151,7 @@ function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
         end
     end
 
-    # Update weights and biases here
-    # cl.weights .-= 0.01 * grad_weights
-    # cl.biases .-= 0.01 * grad_biases
-    return Float32.(cl.grad_input) #, grad_weights, grad_biases
+    return cl.grad_input
 end
 
 

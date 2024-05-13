@@ -126,11 +126,14 @@ println("Starting training...")
 
 plot_loss = Float64[]
 batch_loss = 0.0
-@time begin
-    for epoch in 1:epochs
-        accumulated_accuracy_epoch = 0.0
-        accumulated_accuracy_batch = 0.0
-        for i in eachindex(axes(train_x, 4))
+
+for epoch in 1:epochs
+    accumulated_accuracy_epoch = 0.0
+    accumulated_accuracy_batch = 0.0
+
+    indices = eachindex(axes(train_x, 4))
+    @time begin
+        for i in indices
             input = train_x[:, :, :, i]
             target = train_y[:, i]
 
@@ -146,9 +149,9 @@ batch_loss = 0.0
             #     accumulated_accuracy_batch = 0.0
             # end
 
-            if i % 10000 == 0
-                println("i ", i)
-            end
+            # if i % 10000 == 0
+            #     println("i ", i)
+            # end
 
             backward_pass_master(network, grad_loss)
 
@@ -158,19 +161,19 @@ batch_loss = 0.0
                 update_weights(network, training_step)
             end
         end
-        # println("Epoch $(epoch) done")
-        # println("Accuracy: ", round(accumulated_accuracy_epoch / size(train_x, 4), digits=2))
-        # accumulated_accuracy_epoch = 0.0
-
-        test_loss, test_accuracy = evaluate_model(network, test_x, test_y)
-        println("Epoch $(epoch) done. Training Accuracy: $(round(accumulated_accuracy_epoch / size(train_x, 4), digits=2)), Test Loss: $test_loss, Test Accuracy: $test_accuracy")
-
-        # Update weights at the end of each epoch
-        update_weights(network, training_step)
     end
+    # println("Epoch $(epoch) done")
+    # println("Accuracy: ", round(accumulated_accuracy_epoch / size(train_x, 4), digits=2))
+    # accumulated_accuracy_epoch = 0.0
+
+    test_loss, test_accuracy = evaluate_model(network, test_x, test_y)
+    println("Epoch $(epoch) done. Training Accuracy: $(round(accumulated_accuracy_epoch / size(train_x, 4), digits=2)), Test Loss: $test_loss, Test Accuracy: $test_accuracy")
+
+    # Update weights at the end of each epoch
+    update_weights(network, training_step)
 end
 
 # Plot
 using Plots
 
-plot(plot_loss, xlabel="Batch", ylabel="Loss", title="Loss over time")
+plot(plot_loss, xlabel="Batch", ylabel="Loss", title="Loss over batches")

@@ -33,12 +33,25 @@ function apply_pooling(layer::MaxPoolLayer, input::Array{Float32,3})
         for h in 1:layer.stride:height_bounds
             for w in 1:layer.stride:width_bounds
                 @views window = input[h:h+layer.pool_height-1, w:w+layer.pool_width-1, c]
-                max_value = maximum(window)
+                max_value = -Inf
+                max_index = (0, 0)
+                size_one = size(window, 1)
+                size_two = size(window, 2)
+
+                for i in 1:size_one
+                    for j in 1:size_two
+                        current_value = window[i, j]
+                        if current_value > max_value
+                            max_value = current_value
+                            max_index = (i, j)
+                        end
+                    end
+                end
+
                 output_idx_h = div(h - 1, layer.stride) + 1
                 output_idx_w = div(w - 1, layer.stride) + 1
                 layer.output[output_idx_h, output_idx_w, c] = max_value
-                idx = findfirst(isequal(max_value), window)
-                layer.max_indices[output_idx_h, output_idx_w, c] = (h + idx[1] - 1, w + idx[2] - 1)
+                layer.max_indices[output_idx_h, output_idx_w, c] = (h + max_index[1] - 1, w + max_index[2] - 1)
             end
         end
     end
@@ -56,7 +69,15 @@ function backward_pass(layer::MaxPoolLayer, grad_output::Array{Float32,3})
         layer.grad_input = zeros(Float32, calculate_input_dimensions(layer, size(grad_output)...))
     end
 
-    layer.grad_input .= 0
+    gi1, gi2, gi3 = size(layer.grad_input, 1), size(layer.grad_input, 2), size(layer.grad_input, 3)
+    for i in 1:gi1
+        for j in 1:gi2
+            for k in 1:gi3
+                layer.grad_input[i, j, k] = 0.0
+            end
+        end
+    end #layer.grad_input .= 0
+
     for c in 1:size(grad_output, 3)
         for h in 1:size(grad_output, 1)
             for w in 1:size(grad_output, 2)
