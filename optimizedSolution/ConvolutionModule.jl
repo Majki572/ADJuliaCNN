@@ -27,7 +27,7 @@ function forward(input::Array{Float32,3}, cl::ConvLayer, kernels::Array{Float32,
 
     # Apply padding
     if padding > 0
-        cl.padded_input .= 0
+        fill!(cl.padded_input, 0)
         cl.padded_input[cl.padding+1:cl.padding+cl.height, cl.padding+1:cl.padding+cl.width, :] = input
     else
         cl.padded_input = input
@@ -36,13 +36,26 @@ function forward(input::Array{Float32,3}, cl::ConvLayer, kernels::Array{Float32,
 
     fill!(cl.output, 0)
 
+    height_bounds = cl.height - cl.kernel_height + 1 + 2 * padding
+    width_bounds = cl.width - cl.kernel_width + 1 + 2 * padding
     # Perform convolution for each filter
     for k in 1:cl.num_kernels
         kernel = kernels[:, :, :, k]
-        for h in 1:stride:cl.height-cl.kernel_height+1+2*padding
-            for w in 1:stride:cl.width-cl.kernel_width+1+2*padding
-                patch = cl.padded_input[h:h+cl.kernel_height-1, w:w+cl.kernel_width-1, :]
-                cl.output[div(h - 1, stride)+1, div(w - 1, stride)+1, k] += sum(patch .* kernel)
+        for h in 1:stride:height_bounds
+            for w in 1:stride:width_bounds
+                @views patch = cl.padded_input[h:h+cl.kernel_height-1, w:w+cl.kernel_width-1, :]
+
+                sum_val = 0.0
+
+                for kh in 1:cl.kernel_height
+                    for kw in 1:cl.kernel_width
+                        for kc in 1:cl.channels
+                            sum_val += patch[kh, kw, kc] * kernel[kh, kw, kc]
+                        end
+                    end
+                end
+
+                cl.output[div(h - 1, stride)+1, div(w - 1, stride)+1, k] += sum_val #sum(patch .* kernel)
             end
         end
     end
@@ -67,7 +80,10 @@ end
 
 # Implementing ReLU activation function
 function relu(x)
-    return max.(0, x)
+    for i in eachindex(x)
+        x[i] = max(0, x[i])
+    end
+    return x
 end
 
 function init_conv_layer(kernel_height::Int, kernel_width::Int, input_channels::Int, output_channels::Int, stride::Int, padding::Int, seedy::Int, inp_height::Int, inp_width::Int, inp_channels::Int)
@@ -114,7 +130,7 @@ function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
                 h_out = div(h - 1, cl.stride) + 1
                 w_out = div(w - 1, cl.stride) + 1
                 if h_out <= h_output && w_out <= w_output
-                    patch = cl.padded_input[h:h+cl.kernel_height-1, w:w+cl.kernel_width-1, :]
+                    @views patch = cl.padded_input[h:h+cl.kernel_height-1, w:w+cl.kernel_width-1, :]
                     grad_bias = grad_output[h_out, w_out, k]
                     cl.grad_biases[k] += grad_bias
                     cl.grad_weights[:, :, :, k] += patch * grad_bias

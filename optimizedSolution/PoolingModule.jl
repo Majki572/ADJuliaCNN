@@ -30,7 +30,7 @@ function apply_pooling(layer::MaxPoolLayer, input::Array{Float32,3})
     for c in 1:layer.num_channels
         for h in 1:layer.stride:layer.input_height-layer.pool_height+1
             for w in 1:layer.stride:layer.input_width-layer.pool_width+1
-                window = input[h:h+layer.pool_height-1, w:w+layer.pool_width-1, c]
+                @views window = input[h:h+layer.pool_height-1, w:w+layer.pool_width-1, c]
                 max_value = maximum(window)
                 output_idx_h = div(h - 1, layer.stride) + 1
                 output_idx_w = div(w - 1, layer.stride) + 1
@@ -73,23 +73,5 @@ function calculate_input_dimensions(layer::MaxPoolLayer, out_height::Int, out_wi
     return (input_height, input_width, num_channels)
 end
 
-# ------------------ DEPRECATED ------------------
-# function backward_pass(layer::MaxPoolLayer, grad_output::Array{Float32,3}, max_indices)
-#     (output_height, output_width, num_channels) = size(grad_output)
-#     (input_height, input_width, _) = size(max_indices) * layer.stride
-
-#     grad_input = zeros(Float32, input_height, input_width, num_channels)
-
-#     for c in 1:num_channels
-#         for h in 1:output_height
-#             for w in 1:output_width
-#                 max_h, max_w = max_indices[h, w, c]
-#                 grad_input[max_h, max_w, c] += grad_output[h, w, c]
-#             end
-#         end
-#     end
-
-#     return grad_input
-# end
 
 end
