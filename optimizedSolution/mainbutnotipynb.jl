@@ -1,4 +1,5 @@
 using Statistics
+using Plots
 
 include("ConvolutionModule.jl")
 include("PoolingModule.jl")
@@ -10,6 +11,7 @@ include("LossAndAccuracy.jl")
 include("NetworkHandlers.jl")
 
 using .ConvolutionModule, .PoolingModule, .MNISTDataLoader, .FlattenModule, .DenseModule
+using .NetworkHandlers, .LossAndAccuracy
 
 # Load and preprocess the data
 train_features, train_labels = MNISTDataLoader.load_data(:train)
@@ -115,65 +117,64 @@ function evaluate_model(network, test_x, test_y)
     return avg_loss, avg_accuracy
 end
 
-# Assemble the network
-network = (conv_layer1, pool_layer1, conv_layer2, pool_layer2, flatten_layer, dense_layer1, dense_layer2)
+function main()
+    # Assemble the network
+    network = (conv_layer1, pool_layer1, conv_layer2, pool_layer2, flatten_layer, dense_layer1, dense_layer2)
 
-using .NetworkHandlers, .LossAndAccuracy
-epochs = 3
-training_step = 0.5
+    epochs = 3
+    training_step = 0.5
 
-println("Starting training...")
+    println("Starting training...")
 
-plot_loss = Float64[]
-batch_loss = 0.0
+    plot_loss = Float64[]
+    batch_loss = 0.0
 
-for epoch in 1:epochs
-    accumulated_accuracy_epoch = 0.0
-    accumulated_accuracy_batch = 0.0
+    for epoch in 1:epochs
+        accumulated_accuracy_epoch = 0.0
+        accumulated_accuracy_batch = 0.0
 
-    indices = eachindex(axes(train_x, 4))
-    @time begin
-        for i in indices
-            input = train_x[:, :, :, i]
-            target = train_y[:, i]
+        indices = eachindex(axes(train_x, 4))
+        @time begin
+            for i in indices
+                input = train_x[:, :, :, i]
+                target = train_y[:, i]
 
-            output = NetworkHandlers.forward_pass_master(network, input)
+                output = NetworkHandlers.forward_pass_master(network, input)
 
-            loss, accuracy, grad_loss = LossAndAccuracy.loss_and_accuracy(output, target)
-            accumulated_accuracy_epoch += accuracy
-            accumulated_accuracy_batch += accuracy
-            batch_loss += loss
-            # if i % 100 == 0
-            #     println("Loss: ", loss)
-            #     println("Accuracy: ", round(accumulated_accuracy_batch / 100, digits=2))
-            #     accumulated_accuracy_batch = 0.0
-            # end
+                loss, accuracy, grad_loss = LossAndAccuracy.loss_and_accuracy(output, target)
+                accumulated_accuracy_epoch += accuracy
+                accumulated_accuracy_batch += accuracy
+                batch_loss += loss
+                # if i % 100 == 0
+                #     println("Loss: ", loss)
+                #     println("Accuracy: ", round(accumulated_accuracy_batch / 100, digits=2))
+                #     accumulated_accuracy_batch = 0.0
+                # end
 
-            # if i % 10000 == 0
-            #     println("i ", i)
-            # end
+                # if i % 10000 == 0
+                #     println("i ", i)
+                # end
 
-            backward_pass_master(network, grad_loss)
+                backward_pass_master(network, grad_loss)
 
-            if i % batch_size == 0
-                plot_loss = push!(plot_loss, batch_loss / batch_size)
-                batch_loss = 0.0
-                update_weights(network, training_step)
+                if i % batch_size == 0
+                    plot_loss = push!(plot_loss, batch_loss / batch_size)
+                    batch_loss = 0.0
+                    update_weights(network, training_step)
+                end
             end
         end
+        # println("Epoch $(epoch) done")
+        # println("Accuracy: ", round(accumulated_accuracy_epoch / size(train_x, 4), digits=2))
+        # accumulated_accuracy_epoch = 0.0
+
+        test_loss, test_accuracy = evaluate_model(network, test_x, test_y)
+        println("Epoch $(epoch) done. Training Accuracy: $(round(accumulated_accuracy_epoch / size(train_x, 4), digits=2)), Test Loss: $test_loss, Test Accuracy: $test_accuracy")
+
+        # Update weights at the end of each epoch
+        update_weights(network, training_step)
     end
-    # println("Epoch $(epoch) done")
-    # println("Accuracy: ", round(accumulated_accuracy_epoch / size(train_x, 4), digits=2))
-    # accumulated_accuracy_epoch = 0.0
 
-    test_loss, test_accuracy = evaluate_model(network, test_x, test_y)
-    println("Epoch $(epoch) done. Training Accuracy: $(round(accumulated_accuracy_epoch / size(train_x, 4), digits=2)), Test Loss: $test_loss, Test Accuracy: $test_accuracy")
 
-    # Update weights at the end of each epoch
-    update_weights(network, training_step)
+    plot(plot_loss, xlabel="Batch", ylabel="Loss", title="Loss over batches")
 end
-
-# Plot
-using Plots
-
-plot(plot_loss, xlabel="Batch", ylabel="Loss", title="Loss over batches")
