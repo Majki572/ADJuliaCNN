@@ -34,7 +34,13 @@ function forward(input::Array{Float32,3}, cl::ConvLayer, kernels::Array{Float32,
     end
 
 
-    fill!(cl.output, 0)
+    for k in 1:size(cl.output, 3)
+        for i in 1:size(cl.output, 1)
+            for j in 1:size(cl.output, 2)
+                cl.output[i, j, k] = 0.0
+            end
+        end
+    end #fill!(cl.output, 0)
 
     height_bounds = cl.height - cl.kernel_height + 1 + 2 * padding
     width_bounds = cl.width - cl.kernel_width + 1 + 2 * padding
@@ -124,9 +130,12 @@ function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
     h_output = size(grad_output, 1)
     w_output = size(grad_output, 2)
 
+    height_bounds = cl.height - cl.kernel_height + 1 + 2 * cl.padding
+    width_bounds = cl.width - cl.kernel_width + 1 + 2 * cl.padding
+
     for k in 1:cl.num_kernels
-        for h in 1:cl.stride:cl.height-cl.kernel_height+1+2*cl.padding
-            for w in 1:cl.stride:cl.width-cl.kernel_width+1+2*cl.padding
+        for h in 1:cl.stride:height_bounds
+            for w in 1:cl.stride:width_bounds
                 h_out = div(h - 1, cl.stride) + 1
                 w_out = div(w - 1, cl.stride) + 1
                 if h_out <= h_output && w_out <= w_output

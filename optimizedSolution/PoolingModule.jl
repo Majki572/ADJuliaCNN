@@ -27,9 +27,11 @@ end
 
 function apply_pooling(layer::MaxPoolLayer, input::Array{Float32,3})
 
+    height_bounds = layer.input_height - layer.pool_height + 1
+    width_bounds = layer.input_width - layer.pool_width + 1
     for c in 1:layer.num_channels
-        for h in 1:layer.stride:layer.input_height-layer.pool_height+1
-            for w in 1:layer.stride:layer.input_width-layer.pool_width+1
+        for h in 1:layer.stride:height_bounds
+            for w in 1:layer.stride:width_bounds
                 @views window = input[h:h+layer.pool_height-1, w:w+layer.pool_width-1, c]
                 max_value = maximum(window)
                 output_idx_h = div(h - 1, layer.stride) + 1
