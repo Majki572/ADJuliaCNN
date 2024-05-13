@@ -134,34 +134,32 @@ function main()
         accumulated_accuracy_batch = 0.0
 
         indices = eachindex(axes(train_x, 4))
-        @time begin
-            for i in indices
-                input = train_x[:, :, :, i]
-                target = train_y[:, i]
+        for i in indices
+            input = train_x[:, :, :, i]
+            target = train_y[:, i]
 
-                output = NetworkHandlers.forward_pass_master(network, input)
+            output = NetworkHandlers.forward_pass_master(network, input)
 
-                loss, accuracy, grad_loss = LossAndAccuracy.loss_and_accuracy(output, target)
-                accumulated_accuracy_epoch += accuracy
-                accumulated_accuracy_batch += accuracy
-                batch_loss += loss
-                # if i % 100 == 0
-                #     println("Loss: ", loss)
-                #     println("Accuracy: ", round(accumulated_accuracy_batch / 100, digits=2))
-                #     accumulated_accuracy_batch = 0.0
-                # end
+            loss, accuracy, grad_loss = LossAndAccuracy.loss_and_accuracy(output, target)
+            accumulated_accuracy_epoch += accuracy
+            accumulated_accuracy_batch += accuracy
+            batch_loss += loss
+            # if i % 100 == 0
+            #     println("Loss: ", loss)
+            #     println("Accuracy: ", round(accumulated_accuracy_batch / 100, digits=2))
+            #     accumulated_accuracy_batch = 0.0
+            # end
 
-                # if i % 10000 == 0
-                #     println("i ", i)
-                # end
+            # if i % 10000 == 0
+            #     println("i ", i)
+            # end
 
-                backward_pass_master(network, grad_loss)
+            backward_pass_master(network, grad_loss)
 
-                if i % batch_size == 0
-                    plot_loss = push!(plot_loss, batch_loss / batch_size)
-                    batch_loss = 0.0
-                    update_weights(network, training_step)
-                end
+            if i % batch_size == 0
+                plot_loss = push!(plot_loss, batch_loss / batch_size)
+                batch_loss = 0.0
+                update_weights(network, training_step)
             end
         end
         # println("Epoch $(epoch) done")

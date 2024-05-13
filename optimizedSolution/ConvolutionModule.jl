@@ -145,7 +145,13 @@ function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
                     @views patch = cl.padded_input[h:h+cl.kernel_height-1, w:w+cl.kernel_width-1, :]
                     grad_bias = grad_output[h_out, w_out, k]
                     cl.grad_biases[k] += grad_bias
-                    cl.grad_weights[:, :, :, k] += patch * grad_bias
+                    for kh in 1:cl.kernel_height
+                        for kw in 1:cl.kernel_width
+                            for kc in 1:cl.channels
+                                cl.grad_weights[kh, kw, kc, k] += patch[kh, kw, kc] * grad_bias
+                            end
+                        end
+                    end
                 end
             end
         end
