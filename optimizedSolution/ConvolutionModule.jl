@@ -149,6 +149,10 @@ function backward_pass(cl::ConvLayer, grad_output::Array{Float32,3})
                         for kw in 1:cl.kernel_width
                             for kc in 1:cl.channels
                                 cl.grad_weights[kh, kw, kc, k] += patch[kh, kw, kc] * grad_bias
+                                # if h + kh - 1 > 0 && h + kh - 1 <= size(cl.grad_input, 1) &&
+                                #    w + kw - 1 > 0 && w + kw - 1 <= size(cl.grad_input, 2)
+                                #     cl.grad_input[h+kh-1, w+kw-1, kc] += cl.weights[kh, kw, kc, k] * grad_output[h_out, w_out, k]
+                                # end
                             end
                         end
                     end

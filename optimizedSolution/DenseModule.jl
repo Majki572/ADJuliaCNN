@@ -12,6 +12,7 @@ mutable struct DenseLayer
     activation_grad::Function
     activations::Array{Float32,2}
     inputs::Array{Float32,2}
+    grad_input::Matrix{Float64}
 end
 
 function relu(x)
@@ -54,7 +55,8 @@ function init_dense_layer(input_dim::Int, output_dim::Int, activation::Function,
     grad_biases = zeros(Float32, output_dim)
     activations = zeros(Float32, output_dim, 1)
     inputs = zeros(Float32, input_dim, 1)
-    return DenseLayer(weights, biases, grad_weights, grad_biases, activation, activation_grad, activations, inputs)
+    grad_input = zeros(Float64, 3, 3)
+    return DenseLayer(weights, biases, grad_weights, grad_biases, activation, activation_grad, activations, inputs, grad_input)
 end
 
 function backward_pass(layer::DenseLayer, d_output::Array{Float32,2})
@@ -64,12 +66,12 @@ function backward_pass(layer::DenseLayer, d_output::Array{Float32,2})
     # Calculate gradients
     d_weights = d_activation * layer.inputs'
     d_biases = sum(d_activation, dims=2)
-    d_input = layer.weights' * d_activation
+    layer.grad_input = layer.weights' * d_activation
 
     layer.grad_weights .+= d_weights
     layer.grad_biases .+= d_biases
 
-    return Float32.(d_input)
+    return Float32.(layer.grad_input)
 end
 
 end
