@@ -6,18 +6,23 @@ from tensorflow.keras.utils import to_categorical
 import psutil
 import time
 
-tf.config.set_visible_devices([], 'GPU')
-
 def print_memory_usage():
     process = psutil.Process()
     mem_info = process.memory_info()
     print(f"Memory Usage: {mem_info.rss / 1024**2:.2f} MiB")
 
+physical_devices = tf.config.experimental.list_physical_devices()
+print("Physical devices:", physical_devices)
+
+visible_devices = tf.config.experimental.list_logical_devices()
+print("Visible devices:", visible_devices)
+
+tf.debugging.set_log_device_placement(True)
+
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
 x_train = x_train.reshape(-1, 28, 28, 1).astype('float32') / 255
 x_test = x_test.reshape(-1, 28, 28, 1).astype('float32') / 255
-
 
 y_train = to_categorical(y_train, 10)
 y_test = to_categorical(y_test, 10)
@@ -29,7 +34,7 @@ model = Sequential([
     MaxPooling2D((2, 2)),
     Flatten(),
     Dense(84, activation='relu'),
-    Dense(10, activation='linear')
+    Dense(10, activation='linear') 
 ])
 
 model.compile(optimizer='adam', loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
@@ -40,7 +45,7 @@ class MemoryAndTimeCallback(tf.keras.callbacks.Callback):
     
     def on_epoch_end(self, epoch, logs=None):
         elapsed_time = time.time() - self.start_time
-        print(f"\nEpoch {epoch + 1}")
+        print(f"Epoch {epoch + 1}")
         print(f"Time: {elapsed_time:.2f} seconds")
         print_memory_usage()
         train_loss, train_accuracy = logs.get('loss'), logs.get('accuracy')
@@ -54,29 +59,26 @@ model.fit(x_train, y_train, epochs=3, batch_size=100, validation_data=(x_test, y
 
 # Results:
 # Epoch 1/3
-# 591/600 ━━━━━━━━━━━━━━━━━━━━ 0s 2ms/step - accuracy: 0.8169 - loss: 0.6366    
-# Epoch 1
-# Time: 2.08 seconds
-# Memory Usage: 754.15 MiB
-# Train Loss: 0.2954, Train Accuracy: 0.9146
-# Test Loss: 0.1005, Test Accuracy: 0.9691
+# 595/600 ━━━━━━━━━━━━━━━━━━━━ 0s 2ms/step - accuracy: 0.7803 - loss: 0.7537Epoch 1
+# Time: 2.25 seconds
+# Memory Usage: 753.74 MiB
+# Train Loss: 0.3451, Train Accuracy: 0.9001
+# Test Loss: 0.1059, Test Accuracy: 0.9667
 
-# 600/600 ━━━━━━━━━━━━━━━━━━━━ 2s 2ms/step - accuracy: 0.8185 - loss: 0.6309 - val_accuracy: 0.9691 - val_loss: 0.1005
+# 600/600 ━━━━━━━━━━━━━━━━━━━━ 2s 3ms/step - accuracy: 0.7815 - loss: 0.7497 - val_accuracy: 0.9667 - val_loss: 0.1059
 # Epoch 2/3
-# 589/600 ━━━━━━━━━━━━━━━━━━━━ 0s 2ms/step - accuracy: 0.9676 - loss: 0.1095 
-# Epoch 2
-# Time: 1.39 seconds
-# Memory Usage: 756.66 MiB
-# Train Loss: 0.0986, Train Accuracy: 0.9701
-# Test Loss: 0.0855, Test Accuracy: 0.9722
+# 581/600 ━━━━━━━━━━━━━━━━━━━━ 0s 2ms/step - accuracy: 0.9668 - loss: 0.1080Epoch 2
+# Time: 1.40 seconds
+# Memory Usage: 758.04 MiB
+# Train Loss: 0.0979, Train Accuracy: 0.9699
+# Test Loss: 0.0783, Test Accuracy: 0.9756
 
-# 600/600 ━━━━━━━━━━━━━━━━━━━━ 1s 2ms/step - accuracy: 0.9677 - loss: 0.1093 - val_accuracy: 0.9722 - val_loss: 0.0855
+# 600/600 ━━━━━━━━━━━━━━━━━━━━ 1s 2ms/step - accuracy: 0.9669 - loss: 0.1077 - val_accuracy: 0.9756 - val_loss: 0.0783
 # Epoch 3/3
-# 598/600 ━━━━━━━━━━━━━━━━━━━━ 0s 2ms/step - accuracy: 0.9749 - loss: 0.0789 
-# Epoch 3
-# Time: 1.35 seconds
-# Memory Usage: 756.78 MiB
-# Train Loss: 0.0745, Train Accuracy: 0.9761
-# Test Loss: 0.0686, Test Accuracy: 0.9772
+# 599/600 ━━━━━━━━━━━━━━━━━━━━ 0s 2ms/step - accuracy: 0.9754 - loss: 0.0793Epoch 3
+# Time: 1.37 seconds
+# Memory Usage: 758.24 MiB
+# Train Loss: 0.0723, Train Accuracy: 0.9775
+# Test Loss: 0.0543, Test Accuracy: 0.9819
 
-# 600/600 ━━━━━━━━━━━━━━━━━━━━ 1s 2ms/step - accuracy: 0.9749 - loss: 0.0789 - val_accuracy: 0.9772 - val_loss: 0.0686
+# 600/600 ━━━━━━━━━━━━━━━━━━━━ 1s 2ms/step - accuracy: 0.9754 - loss: 0.0793 - val_accuracy: 0.9819 - val_loss: 0.0543
